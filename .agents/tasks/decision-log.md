@@ -53,3 +53,22 @@ Append-only. One entry per AI-assisted implementation step, and one entry for ev
 - **Schema:** no `updated_at` trigger, silently disabling the documented last-write-wins conflict policy; no `for update` storage policy, so re-uploading a receipt would fail; missing `on delete` actions guaranteeing FK errors on category/payment-method deletion; non-idempotent seed data, against a workflow that runs the file twice.
 
 **Resolution:** All fixed in the planning docs in this commit. The `.env` remediation (rotate key, untrack, rewrite the initial commit, add `.env.example`) and the package/config installs are listed as blocking tasks at the top of `00-overview.md` and must be done before build-order step 1.
+
+---
+
+## [2026-10-11] Foundation step 1: `.env` remediation
+
+**Context:** Build-order step 1 (Foundation) blocking task — the committed `.env` with a live OpenRouter key, and the env var name mismatch (`EXPO_PUBLIC_SUPABASE_KEY`/`OPEN_ROUTE_KEY` vs. the `EXPO_PUBLIC_SUPABASE_ANON_KEY`/`OPENROUTER_API_KEY` every doc reads).
+
+**Prompt used:** User asked to implement the app per `.agents/tasks/`, starting with the build-order's first item (clarified with the user to be Foundation, not the optional `react-native-offline` spike the initial instruction named). Before any `.env` edit, asked the user to confirm the live OpenRouter key was rotated at openrouter.ai, and confirmed via `AskUserQuestion` whether to also rewrite git history (already pushed to `origin/feat/plan-implementation`) and strip a live GitHub PAT found embedded in the local `git remote -v` URL.
+
+**Outcome:**
+- Rewrote `.env` to the two client-safe vars only, correctly named: `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+- `git rm --cached .env`; `.gitignore` now ignores `.env` (with `!.env.example` negated back in).
+- Added committed `.env.example` with placeholders and a comment that `OPENROUTER_API_KEY`/`OPENROUTER_MODEL` are server-only (`supabase secrets set`), never client `.env`.
+- User rotated the OpenRouter key themselves at openrouter.ai (confirmed) and chose to keep the new key locally in `.env` temporarily (untracked, not committed) until the Supabase project/Edge Function secrets exist — flagged that it must move to `supabase secrets set` before `predict-expenses` ships, never read via `EXPO_PUBLIC_*`.
+- User approved rewriting the two existing commits (`99c5816`, `b0366a6`) to remove `.env` from history and force-pushing `feat/plan-implementation`, since they're the sole contributor so far. Declined stripping the embedded PAT from the `origin` remote URL for now (deferred).
+
+**Errors/failures encountered:** `git filter-branch --index-filter 'git rm --cached --ignore-unmatch .env' --prune-empty -- --all` initially refused with "Cannot rewrite branches: You have unstaged changes" because the `.env` untrack + `.gitignore`/`.env.example` changes weren't committed yet.
+
+**Resolution:** Committed the env-fix changes first, then re-ran the history rewrite cleanly. See the next log entry for the rewrite/force-push outcome.
