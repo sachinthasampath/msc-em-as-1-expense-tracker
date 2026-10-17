@@ -359,9 +359,19 @@ on conflict (id) do update
 -- can push arbitrarily large arbitrary-type blobs into the free-tier storage quota. 5 MB is
 -- comfortably above what ReceiptCaptureOverlay produces once it resizes (06-custom-components.md).
 
--- Note: on hosted Supabase, RLS is already enabled on storage.objects. This statement is
--- here so the migration is self-contained against a bare Postgres / `supabase start`.
-alter table storage.objects enable row level security;
+-- Note: on hosted Supabase, RLS is already enabled on storage.objects, and the connecting
+-- migration role does not own that table there (only Supabase's internal role does) — a bare
+-- `alter table ... enable row level security` fails with 42501 insufficient_privilege against
+-- a hosted project. Guard it so the migration still self-enables RLS against a bare Postgres /
+-- `supabase start`, without breaking on hosted Supabase where it's someone else's table.
+do $$
+begin
+  execute 'alter table storage.objects enable row level security';
+exception
+  when insufficient_privilege then
+    null;
+end;
+$$;
 
 drop policy if exists "select own receipts" on storage.objects;
 create policy "select own receipts" on storage.objects
