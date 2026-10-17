@@ -1,10 +1,13 @@
 import { useLocalSearchParams, router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, TextInput } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { PrimaryButton } from '@/components/ui/primary-button';
+import { TextField } from '@/components/ui/text-field';
+import { Layout, Radius, Spacing } from '@/constants/theme';
 import { resendActivationCode, verifyActivationCode } from '@/features/auth/activation';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -47,61 +50,67 @@ export default function ActivateScreen() {
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <ThemedText type="title">Activate account</ThemedText>
-      <ThemedText themeColor="textSecondary">Enter the 8-digit code sent to {email}</ThemedText>
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
+      <ThemedView style={styles.container}>
+        <ThemedView type="card" style={[styles.card, { borderColor: theme.border }]}>
+          <ThemedText type="title">Activate account</ThemedText>
+          <ThemedText type="caption" themeColor="textSecondary">
+            Enter the 8-digit code sent to {email}
+          </ThemedText>
 
-      <TextInput
-        placeholder="12345678"
-        placeholderTextColor={theme.textSecondary}
-        value={code}
-        onChangeText={setCode}
-        keyboardType="number-pad"
-        maxLength={8}
-        style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
-      />
+          <TextField
+            label="Code"
+            placeholder="12345678"
+            value={code}
+            onChangeText={setCode}
+            keyboardType="number-pad"
+            maxLength={8}
+            style={styles.codeInput}
+          />
 
-      {error && <ThemedText style={styles.error}>{error}</ThemedText>}
-      {info && <ThemedText themeColor="textSecondary">{info}</ThemedText>}
+          {error ? (
+            <ThemedText type="caption" themeColor="danger">
+              {error}
+            </ThemedText>
+          ) : null}
+          {info ? (
+            <ThemedText type="caption" themeColor="success">
+              {info}
+            </ThemedText>
+          ) : null}
 
-      <Pressable
-        onPress={handleVerify}
-        disabled={submitting}
-        style={[styles.button, { backgroundColor: theme.backgroundSelected }]}
-      >
-        <ThemedText type="smallBold">{submitting ? 'Verifying…' : 'Verify'}</ThemedText>
-      </Pressable>
+          <PrimaryButton
+            label="Verify"
+            loading={submitting}
+            loadingLabel="Verifying…"
+            onPress={handleVerify}
+          />
 
-      <Pressable onPress={handleResend}>
-        <ThemedText type="link" themeColor="textSecondary">
-          Resend code
-        </ThemedText>
-      </Pressable>
-    </ThemedView>
+          <Pressable onPress={handleResend}>
+            <ThemedText type="linkPrimary">Resend code</ThemedText>
+          </Pressable>
+        </ThemedView>
+      </ThemedView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1 },
   container: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.three,
+    paddingHorizontal: Layout.screenPadding,
   },
-  input: {
-    borderRadius: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
+  card: {
+    borderWidth: 1,
+    borderRadius: Radius.card,
+    padding: Spacing.four,
+    gap: Layout.sectionGap,
+  },
+  codeInput: {
     fontSize: 24,
     textAlign: 'center',
     letterSpacing: 8,
-  },
-  button: {
-    borderRadius: Spacing.two,
-    paddingVertical: Spacing.three,
-    alignItems: 'center',
-  },
-  error: {
-    color: '#D33',
   },
 });

@@ -4,7 +4,7 @@ import {
   FunctionsHttpError,
   FunctionsRelayError,
 } from '@supabase/supabase-js';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { supabase } from '@/data/remote/supabase-client';
 import { useIsOnline } from '@/services/connectivity';
@@ -12,6 +12,7 @@ import { PredictResponse } from '@/types/predictions';
 
 export type PredictionState =
   | { status: 'loading' }
+  | { status: 'empty' }
   | { status: 'error'; message: string }
   | { status: 'rate-limited' }
   | { status: 'offline'; cached: PredictResponse | null }
@@ -63,8 +64,21 @@ async function readFunctionError(error: unknown): Promise<{ status?: number; mes
 export function usePredictions(userId: string | null) {
   const isOnline = useIsOnline();
   const [state, setState] = useState<PredictionState>({ status: 'loading' });
+  const [refreshing, setRefreshing] = useState(false);
 
-  const invoke = useCallback(async () => {
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    AsyncStorage.getItem(cacheKey(userId)).then((raw) => {
+      if (cancelled) return;
+      setState(raw ? { status: 'result', data: JSON.parse(raw) } : { status: 'empty' });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  const regenerate = useCallback(async () => {
     if (!userId) return;
 
     if (!isOnline) {
@@ -73,7 +87,7 @@ export function usePredictions(userId: string | null) {
       return;
     }
 
-    setState({ status: 'loading' });
+    setRefreshing(true);
     const controller = new AbortController();
     // Client-side timeout: the function's own 8s abort only bounds the OpenRouter call, not
     // cold start + query + LLM + response — without this the loading state can hang
@@ -103,8 +117,9 @@ export function usePredictions(userId: string | null) {
       setState({ status: 'error', message: 'Request failed or timed out.' });
     } finally {
       clearTimeout(timeout);
+      setRefreshing(false);
     }
   }, [userId, isOnline]);
 
-  return { state, invoke };
+  return { state, refreshing, regenerate };
 }

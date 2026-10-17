@@ -10,7 +10,7 @@ import { runOnJS } from 'react-native-worklets';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { Card } from '@/types/domain';
 
@@ -95,14 +95,16 @@ function SwipeableCardItemComponent({
       <View style={styles.actions} onLayout={handleActionsLayout}>
         <Pressable
           onPress={() => onEdit(card.id)}
-          style={[styles.action, { backgroundColor: theme.backgroundSelected }]}
+          style={[styles.action, { backgroundColor: theme.primary }]}
           accessibilityLabel={`Edit ${card.nickname}`}
         >
-          <ThemedText type="smallBold">Edit</ThemedText>
+          <ThemedText type="smallBold" style={{ color: theme.onPrimary }}>
+            Edit
+          </ThemedText>
         </Pressable>
         <Pressable
           onPress={confirmDelete}
-          style={[styles.action, styles.deleteAction]}
+          style={[styles.action, { backgroundColor: theme.danger }]}
           accessibilityLabel={`Delete ${card.nickname}`}
         >
           <ThemedText type="smallBold" style={styles.deleteLabel}>
@@ -121,12 +123,16 @@ function SwipeableCardItemComponent({
               if (event.nativeEvent.actionName === 'delete') confirmDelete();
             }}
           >
-            <ThemedView type="backgroundElement" style={styles.row}>
-              <ThemedText type="smallBold">{card.nickname}</ThemedText>
-              <ThemedText themeColor="textSecondary">
-                {card.cardType}
-                {card.last4 ? ` •••• ${card.last4}` : ''}
-              </ThemedText>
+            <ThemedView type="card" style={[styles.row, { borderColor: theme.border }]}>
+              <ThemedView type="card" style={styles.rowText}>
+                <ThemedText type="smallBold">{card.nickname}</ThemedText>
+                {card.last4 ? (
+                  <ThemedText themeColor="textSecondary">•••• {card.last4}</ThemedText>
+                ) : null}
+              </ThemedView>
+              <ThemedView style={[styles.chip, { backgroundColor: theme.backgroundSelected }]}>
+                <ThemedText type="caption">{card.cardType}</ThemedText>
+              </ThemedView>
             </ThemedView>
           </Pressable>
         </Animated.View>
@@ -141,7 +147,7 @@ const styles = StyleSheet.create({
   container: {
     position: 'relative',
     overflow: 'hidden',
-    borderRadius: Spacing.two,
+    borderRadius: Radius.card,
   },
   actions: {
     position: 'absolute',
@@ -155,14 +161,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  deleteAction: {
-    backgroundColor: '#D33',
-  },
   deleteLabel: {
     color: '#fff',
   },
   row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     padding: Spacing.three,
-    borderRadius: Spacing.two,
+    borderRadius: Radius.card,
+    borderWidth: 1,
+    gap: Spacing.two,
+  },
+  rowText: {
+    flex: 1,
+    gap: Spacing.half,
+  },
+  chip: {
+    borderRadius: Radius.pill,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.half,
   },
 });

@@ -1,10 +1,13 @@
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, TextInput } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { PrimaryButton } from '@/components/ui/primary-button';
+import { TextField } from '@/components/ui/text-field';
+import { Layout, Radius, Spacing } from '@/constants/theme';
 import { signUp } from '@/features/auth/activation';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -42,77 +45,68 @@ export default function RegisterScreen() {
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <ThemedText type="title">Register</ThemedText>
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
+      <ThemedView style={styles.container}>
+        <ThemedView type="card" style={[styles.card, { borderColor: theme.border }]}>
+          <ThemedText type="title">Register</ThemedText>
 
-      <TextInput
-        placeholder="Email"
-        placeholderTextColor={theme.textSecondary}
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-        style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
-      />
-      <TextInput
-        placeholder="Password"
-        placeholderTextColor={theme.textSecondary}
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
-      />
-      <TextInput
-        placeholder="Confirm password"
-        placeholderTextColor={theme.textSecondary}
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-        secureTextEntry
-        style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
-      />
+          <TextField
+            label="Email"
+            placeholder="Email"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            autoComplete="email"
+          />
+          <TextField
+            label="Password"
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
+          <TextField
+            label="Confirm password"
+            placeholder="Confirm password"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry
+          />
 
-      {error && (
-        <ThemedText themeColor="text" style={styles.error}>
-          {error}
-        </ThemedText>
-      )}
+          {error ? (
+            <ThemedText type="caption" themeColor="danger">
+              {error}
+            </ThemedText>
+          ) : null}
 
-      <Pressable
-        onPress={handleRegister}
-        disabled={submitting}
-        style={[styles.button, { backgroundColor: theme.backgroundSelected }]}
-      >
-        <ThemedText type="smallBold">{submitting ? 'Creating account…' : 'Create account'}</ThemedText>
-      </Pressable>
+          <PrimaryButton
+            label="Create account"
+            loading={submitting}
+            loadingLabel="Creating account…"
+            onPress={handleRegister}
+          />
 
-      <Link href="/(auth)/login">
-        <ThemedText type="link" themeColor="textSecondary">
-          Already have an account? Log in
-        </ThemedText>
-      </Link>
-    </ThemedView>
+          <Link href="/(auth)/login">
+            <ThemedText type="linkPrimary">Already have an account? Log in</ThemedText>
+          </Link>
+        </ThemedView>
+      </ThemedView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1 },
   container: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.three,
+    paddingHorizontal: Layout.screenPadding,
   },
-  input: {
-    borderRadius: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    fontSize: 16,
-  },
-  button: {
-    borderRadius: Spacing.two,
-    paddingVertical: Spacing.three,
-    alignItems: 'center',
-  },
-  error: {
-    color: '#D33',
+  card: {
+    borderWidth: 1,
+    borderRadius: Radius.card,
+    padding: Spacing.four,
+    gap: Layout.sectionGap,
   },
 });

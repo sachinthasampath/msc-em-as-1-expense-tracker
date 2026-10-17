@@ -1,10 +1,12 @@
-import { useState } from 'react';
-import { FlatList, Pressable, StyleSheet, TextInput } from 'react-native';
+import { useEffect, useState } from 'react';
+import { FlatList, Keyboard, Pressable, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SpendingGauge } from '@/components/ui/spending-gauge';
+import { TextField } from '@/components/ui/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Layout, Radius, Spacing } from '@/constants/theme';
 import { supabase } from '@/data/remote/supabase-client';
 import { useAuth } from '@/features/auth/use-auth';
 import { useBudget } from '@/features/dashboard/use-budget';
@@ -23,6 +25,16 @@ export default function DashboardScreen() {
   const { budgetMinor, setBudgetMinor } = useBudget(userId);
   const [budgetInput, setBudgetInput] = useState('');
 
+  useEffect(() => {
+    if (budgetMinor > 0) setBudgetInput(String(budgetMinor / 100));
+  }, [budgetMinor]);
+
+  function commitBudget() {
+    const value = Number(budgetInput.replace(/,/g, '').trim());
+    if (!Number.isFinite(value) || value <= 0) return;
+    setBudgetMinor(Math.round(value * 100));
+  }
+
   const now = new Date();
   const thisMonthTotal = payments
     .filter((p) => {
@@ -32,96 +44,100 @@ export default function DashboardScreen() {
     .reduce((sum, p) => sum + p.amountMinor, 0);
 
   return (
-    <ThemedView style={styles.container}>
-      <ThemedText type="title">Dashboard</ThemedText>
-
-      <ThemedView style={styles.gaugeRow}>
-        <SpendingGauge
-          actual={thisMonthTotal}
-          target={budgetMinor}
-          formattedActual={formatLkr(thisMonthTotal)}
-          formattedTarget={formatLkr(budgetMinor)}
-        />
-        <ThemedView style={styles.budgetForm}>
-          <ThemedText themeColor="textSecondary">Monthly budget</ThemedText>
-          <TextInput
-            placeholder="Set budget (LKR)"
-            placeholderTextColor={theme.textSecondary}
-            value={budgetInput}
-            onChangeText={setBudgetInput}
-            keyboardType="decimal-pad"
-            style={[styles.budgetInput, { color: theme.text, backgroundColor: theme.backgroundElement }]}
-            onSubmitEditing={() => {
-              const value = Number(budgetInput);
-              if (value > 0) setBudgetMinor(Math.round(value * 100));
-              setBudgetInput('');
-            }}
-          />
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['top']}>
+      <Pressable style={styles.container} onPress={Keyboard.dismiss}>
+        <ThemedView style={styles.header}>
+          <ThemedText type="title">Dashboard</ThemedText>
         </ThemedView>
-      </ThemedView>
 
-      <ThemedText type="smallBold">Recent payments</ThemedText>
+        <ThemedView type="card" style={[styles.gaugeCard, { borderColor: theme.border }]}>
+          <SpendingGauge
+            actual={thisMonthTotal}
+            target={budgetMinor}
+            formattedActual={formatLkr(thisMonthTotal)}
+            formattedTarget={formatLkr(budgetMinor)}
+          />
+          <ThemedView type="card" style={styles.budgetForm}>
+            <ThemedText type="subtitle">Monthly budget</ThemedText>
+            <TextField
+              placeholder="Set budget (LKR)"
+              value={budgetInput}
+              onChangeText={setBudgetInput}
+              keyboardType="decimal-pad"
+              returnKeyType="done"
+              blurOnSubmit
+              onSubmitEditing={commitBudget}
+              onEndEditing={commitBudget}
+            />
+          </ThemedView>
+        </ThemedView>
 
-      {loading ? (
-        <ThemedText themeColor="textSecondary">Loading…</ThemedText>
-      ) : (
-        <FlatList
-          data={payments.slice(0, 20)}
-          keyExtractor={(p) => p.id}
-          ListEmptyComponent={<ThemedText themeColor="textSecondary">No payments yet.</ThemedText>}
-          renderItem={({ item }) => (
-            <ThemedView type="backgroundElement" style={styles.paymentRow}>
-              <ThemedText>{new Date(item.occurredAt).toLocaleDateString()}</ThemedText>
-              <ThemedText type="smallBold">{formatLkr(item.amountMinor)}</ThemedText>
-            </ThemedView>
-          )}
-          contentContainerStyle={{ gap: Spacing.two }}
-        />
-      )}
+        <ThemedText type="subtitle">Recent payments</ThemedText>
 
-      <Pressable
-        onPress={() => supabase.auth.signOut()}
-        style={[styles.button, { backgroundColor: theme.backgroundSelected }]}
-      >
-        <ThemedText type="smallBold">Log out</ThemedText>
+        {loading ? (
+          <ThemedText themeColor="textSecondary">Loading…</ThemedText>
+        ) : (
+          <FlatList
+            data={payments.slice(0, 20)}
+            keyExtractor={(p) => p.id}
+            style={styles.list}
+            ListEmptyComponent={<ThemedText themeColor="textSecondary">No payments yet.</ThemedText>}
+            renderItem={({ item }) => (
+              <ThemedView type="card" style={[styles.paymentRow, { borderColor: theme.border }]}>
+                <ThemedText>{new Date(item.occurredAt).toLocaleDateString()}</ThemedText>
+                <ThemedText type="smallBold">{formatLkr(item.amountMinor)}</ThemedText>
+              </ThemedView>
+            )}
+            contentContainerStyle={{ gap: Spacing.two }}
+          />
+        )}
+
+        <Pressable onPress={() => supabase.auth.signOut()} style={styles.logout}>
+          <ThemedText type="smallBold" themeColor="danger">
+            Log out
+          </ThemedText>
+        </Pressable>
       </Pressable>
-    </ThemedView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1 },
   container: {
     flex: 1,
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.six,
-    gap: Spacing.three,
+    paddingHorizontal: Layout.screenPadding,
+    paddingBottom: Spacing.three,
+    gap: Layout.sectionGap,
   },
-  gaugeRow: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.four,
+    justifyContent: 'space-between',
+  },
+  gaugeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    borderWidth: 1,
+    borderRadius: Radius.card,
+    padding: Spacing.three,
   },
   budgetForm: {
     flex: 1,
     gap: Spacing.two,
   },
-  budgetInput: {
-    borderRadius: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    fontSize: 16,
-  },
+  list: { flex: 1 },
   paymentRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    borderRadius: Spacing.two,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: Radius.card,
     padding: Spacing.three,
   },
-  button: {
-    borderRadius: Spacing.two,
-    paddingVertical: Spacing.three,
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    paddingHorizontal: Spacing.four,
+  logout: {
+    alignSelf: 'center',
+    paddingVertical: Spacing.two,
   },
 });

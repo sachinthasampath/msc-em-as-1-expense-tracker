@@ -7,18 +7,30 @@ import { Platform } from 'react-native';
 
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    text: '#1C1917',
+    background: '#F7F4EF',
+    backgroundElement: '#EFEBE4',
+    backgroundSelected: '#D7EDEB',
+    textSecondary: '#6B6560',
+    primary: '#0F766E',
+    onPrimary: '#FFFFFF',
+    danger: '#E07A5F',
+    success: '#2F9E6B',
+    border: '#E4DED6',
+    card: '#FFFFFF',
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
+    text: '#F5F2ED',
+    background: '#1A1816',
+    backgroundElement: '#2A2623',
+    backgroundSelected: '#134E4A',
+    textSecondary: '#A8A29E',
+    primary: '#2DD4BF',
+    onPrimary: '#042F2E',
+    danger: '#F4A38A',
+    success: '#4ADE80',
+    border: '#3A3530',
+    card: '#24211E',
   },
 } as const;
 
@@ -57,6 +69,17 @@ export const Spacing = {
   four: 24,
   five: 32,
   six: 64,
+} as const;
+
+export const Radius = {
+  input: 12,
+  card: 16,
+  pill: 999,
+} as const;
+
+export const Layout = {
+  screenPadding: 20,
+  sectionGap: 16,
 } as const;
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;

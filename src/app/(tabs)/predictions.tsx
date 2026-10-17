@@ -1,10 +1,11 @@
-import { useEffect } from 'react';
-import { Pressable, ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { PrimaryButton } from '@/components/ui/primary-button';
 import { SpendingGauge } from '@/components/ui/spending-gauge';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Layout, Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/features/auth/use-auth';
 import { usePayments } from '@/features/payments/use-payments';
 import { usePredictions } from '@/features/predictions/use-predictions';
@@ -32,31 +33,34 @@ export default function PredictionsScreen() {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const { payments } = usePayments(userId);
-  const { state, invoke } = usePredictions(userId);
-
-  useEffect(() => {
-    invoke();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  const { state, refreshing, regenerate } = usePredictions(userId);
 
   const actualSoFar = actualSoFarThisMonth(payments);
 
   return (
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['top']}>
     <ScrollView contentContainerStyle={styles.container}>
       <ThemedText type="title">Predictions</ThemedText>
-      <ThemedText themeColor="textSecondary" style={styles.privacyNote}>
+      <ThemedText type="caption" themeColor="textSecondary">
         Generating an explanation sends your aggregated, anonymized spending totals to an
         external AI provider (OpenRouter).
       </ThemedText>
 
       {state.status === 'loading' && <ThemedText themeColor="textSecondary">Loading prediction…</ThemedText>}
 
+      {state.status === 'empty' && (
+        <ThemedView style={styles.gap}>
+          <ThemedText themeColor="textSecondary">No prediction saved on this device yet.</ThemedText>
+          <PrimaryButton label="Generate prediction" loading={refreshing} loadingLabel="Generating…" onPress={regenerate} />
+        </ThemedView>
+      )}
+
       {state.status === 'error' && (
         <ThemedView style={styles.gap}>
-          <ThemedText style={styles.errorText}>{state.message}</ThemedText>
-          <Pressable onPress={invoke} style={[styles.button, { backgroundColor: theme.backgroundSelected }]}>
-            <ThemedText type="smallBold">Retry</ThemedText>
-          </Pressable>
+          <ThemedText type="caption" themeColor="danger">
+            {state.message}
+          </ThemedText>
+          <PrimaryButton label="Retry" loading={refreshing} loadingLabel="Generating…" onPress={regenerate} />
         </ThemedView>
       )}
 
@@ -72,7 +76,7 @@ export default function PredictionsScreen() {
                 Offline — showing the last prediction from {new Date(state.cached.generatedAt).toLocaleString()}.
               </ThemedText>
             )}
-            <PredictionResult data={state.cached} actualSoFar={actualSoFar} theme={theme} />
+            <PredictionResult data={state.cached} actualSoFar={actualSoFar} />
           </ThemedView>
         ) : (
           <ThemedText themeColor="textSecondary">
@@ -80,20 +84,26 @@ export default function PredictionsScreen() {
           </ThemedText>
         ))}
 
-      {state.status === 'result' && <PredictionResult data={state.data} actualSoFar={actualSoFar} theme={theme} />}
+      {state.status === 'result' && (
+        <ThemedView style={styles.gap}>
+          <PredictionResult data={state.data} actualSoFar={actualSoFar} />
+          <PrimaryButton label="Regenerate" loading={refreshing} loadingLabel="Generating…" onPress={regenerate} />
+        </ThemedView>
+      )}
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
 function PredictionResult({
   data,
   actualSoFar,
-  theme,
 }: {
   data: PredictResponse;
   actualSoFar: number;
-  theme: ReturnType<typeof useTheme>;
 }) {
+  const theme = useTheme();
+
   if (data.insufficientData) {
     return (
       <ThemedText themeColor="textSecondary">
@@ -114,21 +124,21 @@ function PredictionResult({
         formattedTarget={formatLkr(forecast.predictedTotal)}
       />
 
-      <ThemedView type="backgroundElement" style={styles.card}>
-        <ThemedText type="smallBold">Forecast for {forecast.forecastMonth}</ThemedText>
+      <ThemedView type="card" style={[styles.card, { borderColor: theme.border }]}>
+        <ThemedText type="subtitle">Forecast for {forecast.forecastMonth}</ThemedText>
         <ThemedText themeColor="textSecondary">
           {formatLkr(forecast.lowerEstimate)} – {formatLkr(forecast.upperEstimate)}
         </ThemedText>
         <ThemedView type="backgroundSelected" style={styles.trendBadge}>
-          <ThemedText type="small">{forecast.spendingTrend}</ThemedText>
+          <ThemedText type="caption">{forecast.spendingTrend}</ThemedText>
         </ThemedView>
       </ThemedView>
 
-      <ThemedText type="smallBold">By category</ThemedText>
+      <ThemedText type="subtitle">By category</ThemedText>
       {forecast.byCategory.map((c) => (
-        <ThemedView key={c.categoryId} style={styles.categoryRow}>
+        <ThemedView key={c.categoryId} type="card" style={[styles.categoryRow, { borderColor: theme.border }]}>
           <ThemedText>{c.name}</ThemedText>
-          <ThemedText>{formatLkr(c.predictedAmount)}</ThemedText>
+          <ThemedText type="smallBold">{formatLkr(c.predictedAmount)}</ThemedText>
         </ThemedView>
       ))}
 
@@ -136,7 +146,7 @@ function PredictionResult({
         <ThemedText themeColor="textSecondary">AI insight unavailable right now.</ThemedText>
       ) : (
         aiExplanation && (
-          <ThemedView type="backgroundElement" style={styles.card}>
+          <ThemedView type="card" style={[styles.card, { borderColor: theme.border }]}>
             <ThemedText>{aiExplanation.explanation}</ThemedText>
             {aiExplanation.insights.map((insight, i) => (
               <ThemedText key={i} themeColor="textSecondary">
@@ -147,7 +157,7 @@ function PredictionResult({
         )
       )}
 
-      <ThemedText themeColor="textSecondary" style={styles.disclaimer}>
+      <ThemedText type="caption" themeColor="textSecondary" style={styles.disclaimer}>
         This is an estimate, not a guarantee.
       </ThemedText>
     </ThemedView>
@@ -155,43 +165,36 @@ function PredictionResult({
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1 },
   container: {
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.six,
-    paddingBottom: Spacing.six,
-    gap: Spacing.three,
+    paddingHorizontal: Layout.screenPadding,
+    paddingBottom: Spacing.five,
+    gap: Layout.sectionGap,
   },
   gap: {
-    gap: Spacing.three,
-  },
-  privacyNote: {
-    fontSize: 12,
-  },
-  errorText: {
-    color: '#D33',
-  },
-  button: {
-    borderRadius: Spacing.two,
-    paddingVertical: Spacing.three,
-    alignItems: 'center',
+    gap: Layout.sectionGap,
   },
   card: {
-    borderRadius: Spacing.two,
+    borderWidth: 1,
+    borderRadius: Radius.card,
     padding: Spacing.three,
     gap: Spacing.one,
   },
   trendBadge: {
     alignSelf: 'flex-start',
-    borderRadius: Spacing.two,
+    borderRadius: Radius.pill,
     paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.half,
   },
   categoryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: Radius.card,
+    padding: Spacing.three,
   },
   disclaimer: {
-    fontSize: 12,
     textAlign: 'center',
   },
 });

@@ -1,9 +1,12 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { PrimaryButton } from '@/components/ui/primary-button';
+import { TextField } from '@/components/ui/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Layout, Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/features/auth/use-auth';
 import { useInfeasibleReminders } from '@/features/notifications/use-infeasible-reminders';
 import { useNotificationSettings } from '@/features/notifications/use-notification-settings';
@@ -50,90 +53,84 @@ export default function SettingsScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <ThemedText type="title">Settings</ThemedText>
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['top']}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <ThemedText type="title">Settings</ThemedText>
 
-      {infeasible.length > 0 && (
-        <ThemedView type="backgroundElement" style={styles.banner}>
-          <ThemedText type="smallBold">Sync issue — reminders couldn&apos;t be scheduled</ThemedText>
-          {infeasible.map((item) => (
-            <ThemedText key={item.cardId} themeColor="textSecondary">
-              No reminder for {item.cardNickname} — {REASON_LABEL[item.reason] ?? item.reason}.
-            </ThemedText>
-          ))}
+        {infeasible.length > 0 && (
+          <ThemedView type="card" style={[styles.group, { borderColor: theme.danger }]}>
+            <ThemedText type="subtitle">Sync issue — reminders couldn&apos;t be scheduled</ThemedText>
+            {infeasible.map((item) => (
+              <ThemedText key={item.cardId} type="caption" themeColor="textSecondary">
+                No reminder for {item.cardNickname} — {REASON_LABEL[item.reason] ?? item.reason}.
+              </ThemedText>
+            ))}
+          </ThemedView>
+        )}
+
+        <ThemedView type="card" style={[styles.group, { borderColor: theme.border }]}>
+          <ThemedText type="subtitle">Quiet hours</ThemedText>
+          <ThemedView type="card" style={styles.row}>
+            <TextField
+              label="Start"
+              placeholder="Start (HH:MM)"
+              value={quietHoursStart}
+              onChangeText={setQuietHoursStart}
+              containerStyle={styles.flexInput}
+            />
+            <TextField
+              label="End"
+              placeholder="End (HH:MM)"
+              value={quietHoursEnd}
+              onChangeText={setQuietHoursEnd}
+              containerStyle={styles.flexInput}
+            />
+          </ThemedView>
         </ThemedView>
-      )}
 
-      <ThemedText type="smallBold">Quiet hours</ThemedText>
-      <ThemedView style={styles.row}>
-        <TextInput
-          placeholder="Start (HH:MM)"
-          placeholderTextColor={theme.textSecondary}
-          value={quietHoursStart}
-          onChangeText={setQuietHoursStart}
-          style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
+        <ThemedView type="card" style={[styles.group, { borderColor: theme.border }]}>
+          <ThemedText type="subtitle">Max reminders per day</ThemedText>
+          <TextField value={maxPerDay} onChangeText={setMaxPerDay} keyboardType="number-pad" />
+          <ThemedText type="caption" themeColor="textSecondary">
+            Timezone: {settings.timeZone}
+          </ThemedText>
+        </ThemedView>
+
+        {error ? (
+          <ThemedText type="caption" themeColor="danger">
+            {error}
+          </ThemedText>
+        ) : null}
+
+        <PrimaryButton
+          label={saved ? 'Saved' : 'Save'}
+          loading={saving}
+          loadingLabel="Saving…"
+          onPress={handleSave}
         />
-        <TextInput
-          placeholder="End (HH:MM)"
-          placeholderTextColor={theme.textSecondary}
-          value={quietHoursEnd}
-          onChangeText={setQuietHoursEnd}
-          style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
-        />
-      </ThemedView>
-
-      <ThemedText type="smallBold">Max reminders per day</ThemedText>
-      <TextInput
-        value={maxPerDay}
-        onChangeText={setMaxPerDay}
-        keyboardType="number-pad"
-        style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
-      />
-
-      <ThemedText themeColor="textSecondary">Timezone: {settings.timeZone}</ThemedText>
-
-      {error && <ThemedText style={styles.error}>{error}</ThemedText>}
-
-      <Pressable
-        onPress={handleSave}
-        disabled={saving}
-        style={[styles.button, { backgroundColor: theme.backgroundSelected }]}
-      >
-        <ThemedText type="smallBold">{saving ? 'Saving…' : saved ? 'Saved' : 'Save'}</ThemedText>
-      </Pressable>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1 },
   container: {
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.six,
-    paddingBottom: Spacing.six,
-    gap: Spacing.three,
+    paddingHorizontal: Layout.screenPadding,
+    paddingBottom: Spacing.five,
+    gap: Layout.sectionGap,
   },
   row: {
     flexDirection: 'row',
     gap: Spacing.two,
   },
-  input: {
+  flexInput: {
     flex: 1,
-    borderRadius: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    fontSize: 16,
   },
-  button: {
-    borderRadius: Spacing.two,
-    paddingVertical: Spacing.three,
-    alignItems: 'center',
-  },
-  banner: {
-    borderRadius: Spacing.two,
+  group: {
+    borderWidth: 1,
+    borderRadius: Radius.card,
     padding: Spacing.three,
-    gap: Spacing.one,
-  },
-  error: {
-    color: '#D33',
+    gap: Spacing.two,
   },
 });

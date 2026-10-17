@@ -1,10 +1,13 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { PrimaryButton } from '@/components/ui/primary-button';
+import { TextField } from '@/components/ui/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Layout, Radius, Spacing } from '@/constants/theme';
 import { uploadReceipt } from '@/data/remote/receipts-api';
 import { useAuth } from '@/features/auth/use-auth';
 import { useCards } from '@/features/cards/use-cards';
@@ -97,100 +100,111 @@ export default function AddPaymentScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <ThemedText type="title">Add Payment</ThemedText>
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['top']}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <ThemedText type="title">Add Payment</ThemedText>
 
-      <TextInput
-        placeholder="Amount (LKR)"
-        placeholderTextColor={theme.textSecondary}
-        value={amount}
-        onChangeText={setAmount}
-        keyboardType="decimal-pad"
-        style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
-      />
+        <TextField
+          label="Amount"
+          placeholder="Amount (LKR)"
+          value={amount}
+          onChangeText={setAmount}
+          keyboardType="decimal-pad"
+        />
 
-      <ThemedText type="smallBold">Category</ThemedText>
-      <ThemedView style={styles.chipRow}>
-        {categories.map((category) => (
-          <Pressable
-            key={category.id}
-            onPress={() => setCategoryId(category.id)}
-            style={[
-              styles.chip,
-              { backgroundColor: categoryId === category.id ? theme.backgroundSelected : theme.backgroundElement },
-            ]}
-          >
-            <ThemedText>{category.name}</ThemedText>
-          </Pressable>
-        ))}
-      </ThemedView>
-
-      <ThemedText type="smallBold">Payment method</ThemedText>
-      <ThemedView style={styles.chipRow}>
-        {methods.map((method) => (
-          <Pressable
-            key={method.id}
-            onPress={() => setMethodId(method.id)}
-            style={[
-              styles.chip,
-              { backgroundColor: methodId === method.id ? theme.backgroundSelected : theme.backgroundElement },
-            ]}
-          >
-            <ThemedText>{method.label ?? method.methodType}</ThemedText>
-          </Pressable>
-        ))}
-      </ThemedView>
-
-      <TextInput
-        placeholder="Notes (optional)"
-        placeholderTextColor={theme.textSecondary}
-        value={notes}
-        onChangeText={setNotes}
-        style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
-      />
-
-      <ThemedText type="smallBold">Receipt</ThemedText>
-      {receiptUri ? (
-        <ThemedView style={styles.receiptPreview}>
-          <Image source={{ uri: receiptUri }} style={styles.receiptThumbnail} />
-          <Pressable onPress={() => setReceiptUri(null)}>
-            <ThemedText themeColor="textSecondary">Remove</ThemedText>
-          </Pressable>
+        <ThemedText type="subtitle">Category</ThemedText>
+        <ThemedView style={styles.chipRow}>
+          {categories.map((category) => {
+            const selected = categoryId === category.id;
+            return (
+              <Pressable
+                key={category.id}
+                onPress={() => setCategoryId(category.id)}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: selected ? theme.primary : theme.card,
+                    borderColor: selected ? theme.primary : theme.border,
+                  },
+                ]}
+              >
+                <ThemedText style={{ color: selected ? theme.onPrimary : theme.text }}>{category.name}</ThemedText>
+              </Pressable>
+            );
+          })}
         </ThemedView>
-      ) : (
-        <Pressable
-          onPress={() => router.push('/receipt-capture')}
-          style={[styles.chip, { backgroundColor: theme.backgroundElement, alignSelf: 'flex-start' }]}
-        >
-          <ThemedText>Add receipt photo</ThemedText>
-        </Pressable>
-      )}
 
-      {error && <ThemedText style={styles.error}>{error}</ThemedText>}
+        <ThemedText type="subtitle">Payment method</ThemedText>
+        <ThemedView style={styles.chipRow}>
+          {methods.map((method) => {
+            const selected = methodId === method.id;
+            return (
+              <Pressable
+                key={method.id}
+                onPress={() => setMethodId(method.id)}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: selected ? theme.primary : theme.card,
+                    borderColor: selected ? theme.primary : theme.border,
+                  },
+                ]}
+              >
+                <ThemedText style={{ color: selected ? theme.onPrimary : theme.text }}>
+                  {method.label ?? method.methodType}
+                </ThemedText>
+              </Pressable>
+            );
+          })}
+        </ThemedView>
 
-      <Pressable
-        onPress={handleSave}
-        disabled={saving}
-        style={[styles.button, { backgroundColor: theme.backgroundSelected }]}
-      >
-        <ThemedText type="smallBold">{saving ? 'Saving…' : saved ? 'Saved' : 'Save payment'}</ThemedText>
-      </Pressable>
-    </ScrollView>
+        <TextField
+          label="Notes"
+          placeholder="Notes (optional)"
+          value={notes}
+          onChangeText={setNotes}
+        />
+
+        <ThemedText type="subtitle">Receipt</ThemedText>
+        {receiptUri ? (
+          <ThemedView style={styles.receiptPreview}>
+            <Image source={{ uri: receiptUri }} style={[styles.receiptThumbnail, { borderColor: theme.border }]} />
+            <Pressable onPress={() => setReceiptUri(null)}>
+              <ThemedText type="linkPrimary">Remove</ThemedText>
+            </Pressable>
+          </ThemedView>
+        ) : (
+          <Pressable
+            onPress={() => router.push('/receipt-capture')}
+            style={[styles.chip, { backgroundColor: theme.card, borderColor: theme.border, alignSelf: 'flex-start' }]}
+          >
+            <ThemedText>Add receipt photo</ThemedText>
+          </Pressable>
+        )}
+
+        {error ? (
+          <ThemedText type="caption" themeColor="danger">
+            {error}
+          </ThemedText>
+        ) : null}
+
+        <PrimaryButton
+          label={saved ? 'Saved' : 'Save payment'}
+          loading={saving}
+          loadingLabel="Saving…"
+          onPress={handleSave}
+        />
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1 },
   container: {
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.six,
-    paddingBottom: Spacing.six,
-    gap: Spacing.three,
-  },
-  input: {
-    borderRadius: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    fontSize: 16,
+    paddingHorizontal: Layout.screenPadding,
+    paddingBottom: Spacing.five,
+    gap: Layout.sectionGap,
   },
   chipRow: {
     flexDirection: 'row',
@@ -198,7 +212,8 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   chip: {
-    borderRadius: Spacing.two,
+    borderWidth: 1,
+    borderRadius: Radius.pill,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
   },
@@ -210,14 +225,7 @@ const styles = StyleSheet.create({
   receiptThumbnail: {
     width: 64,
     height: 64,
-    borderRadius: Spacing.two,
-  },
-  button: {
-    borderRadius: Spacing.two,
-    paddingVertical: Spacing.three,
-    alignItems: 'center',
-  },
-  error: {
-    color: '#D33',
+    borderRadius: Radius.input,
+    borderWidth: 1,
   },
 });

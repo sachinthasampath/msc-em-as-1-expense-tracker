@@ -10,7 +10,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Colors, Radius, Spacing } from '@/constants/theme';
 
 const HANDLE_SIZE = 28;
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -77,17 +77,21 @@ export function ReceiptCaptureOverlay({
   if (!permission.granted) {
     return (
       <View style={styles.center} testID={testID}>
-        <ThemedText type="subtitle">Camera access needed</ThemedText>
+        <ThemedText type="title">Camera access needed</ThemedText>
         <ThemedText themeColor="textSecondary" style={styles.permissionText}>
           Allow camera access to capture a receipt photo.
         </ThemedText>
         {permission.canAskAgain ? (
           <Pressable style={styles.primaryButton} onPress={requestPermission}>
-            <ThemedText type="smallBold">Grant permission</ThemedText>
+            <ThemedText type="smallBold" style={styles.primaryLabel}>
+              Grant permission
+            </ThemedText>
           </Pressable>
         ) : (
           <Pressable style={styles.primaryButton} onPress={() => Linking.openSettings()}>
-            <ThemedText type="smallBold">Open Settings</ThemedText>
+            <ThemedText type="smallBold" style={styles.primaryLabel}>
+              Open Settings
+            </ThemedText>
           </Pressable>
         )}
         <Pressable onPress={onCancel}>
@@ -354,10 +358,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   primaryButton: {
-    backgroundColor: '#3C87F7',
-    borderRadius: Spacing.two,
+    backgroundColor: Colors.light.primary,
+    borderRadius: Radius.pill,
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.three,
+  },
+  primaryLabel: {
+    color: Colors.light.onPrimary,
   },
   controls: {
     flexDirection: 'row',
@@ -383,14 +390,14 @@ const styles = StyleSheet.create({
   cropRect: {
     position: 'absolute',
     borderWidth: 2,
-    borderColor: '#3C87F7',
+    borderColor: Colors.light.primary,
   },
   handle: {
     position: 'absolute',
     width: HANDLE_SIZE,
     height: HANDLE_SIZE,
     borderRadius: HANDLE_SIZE / 2,
-    backgroundColor: '#3C87F7',
+    backgroundColor: Colors.light.primary,
     borderWidth: 2,
     borderColor: '#fff',
   },

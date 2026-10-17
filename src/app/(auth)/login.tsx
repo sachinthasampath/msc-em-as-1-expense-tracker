@@ -1,10 +1,13 @@
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, TextInput } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { PrimaryButton } from '@/components/ui/primary-button';
+import { TextField } from '@/components/ui/text-field';
+import { Layout, Radius, Spacing } from '@/constants/theme';
 import { isEmailNotConfirmedError, signIn } from '@/features/auth/activation';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -39,65 +42,62 @@ export default function LoginScreen() {
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <ThemedText type="title">Log in</ThemedText>
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
+      <ThemedView style={styles.container}>
+        <ThemedView type="card" style={[styles.card, { borderColor: theme.border }]}>
+          <ThemedText type="title">Log in</ThemedText>
 
-      <TextInput
-        placeholder="Email"
-        placeholderTextColor={theme.textSecondary}
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-        style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
-      />
-      <TextInput
-        placeholder="Password"
-        placeholderTextColor={theme.textSecondary}
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
-      />
+          <TextField
+            label="Email"
+            placeholder="Email"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            autoComplete="email"
+          />
+          <TextField
+            label="Password"
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoComplete="password"
+          />
 
-      {error && <ThemedText style={styles.error}>{error}</ThemedText>}
+          {error ? (
+            <ThemedText type="caption" themeColor="danger">
+              {error}
+            </ThemedText>
+          ) : null}
 
-      <Pressable
-        onPress={handleLogin}
-        disabled={submitting}
-        style={[styles.button, { backgroundColor: theme.backgroundSelected }]}
-      >
-        <ThemedText type="smallBold">{submitting ? 'Logging in…' : 'Log in'}</ThemedText>
-      </Pressable>
+          <PrimaryButton
+            label="Log in"
+            loading={submitting}
+            loadingLabel="Logging in…"
+            onPress={handleLogin}
+          />
 
-      <Link href="/(auth)/register">
-        <ThemedText type="link" themeColor="textSecondary">
-          Need an account? Register
-        </ThemedText>
-      </Link>
-    </ThemedView>
+          <Link href="/(auth)/register">
+            <ThemedText type="linkPrimary">Need an account? Register</ThemedText>
+          </Link>
+        </ThemedView>
+      </ThemedView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1 },
   container: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.three,
+    paddingHorizontal: Layout.screenPadding,
   },
-  input: {
-    borderRadius: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    fontSize: 16,
-  },
-  button: {
-    borderRadius: Spacing.two,
-    paddingVertical: Spacing.three,
-    alignItems: 'center',
-  },
-  error: {
-    color: '#D33',
+  card: {
+    borderWidth: 1,
+    borderRadius: Radius.card,
+    padding: Spacing.four,
+    gap: Layout.sectionGap,
   },
 });

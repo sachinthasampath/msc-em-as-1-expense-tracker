@@ -4,6 +4,7 @@ import Animated, { useAnimatedProps, useSharedValue, withTiming } from 'react-na
 import Svg, { Circle } from 'react-native-svg';
 
 import { ThemedText } from '@/components/themed-text';
+import { useTheme } from '@/hooks/use-theme';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const STROKE_WIDTH = 14;
@@ -31,6 +32,7 @@ export function SpendingGauge({
   accessibilityLabel,
   testID,
 }: SpendingGaugeProps) {
+  const theme = useTheme();
   const radius = (size - STROKE_WIDTH) / 2;
   const circumference = 2 * Math.PI * radius;
   const progress = useSharedValue(0);
@@ -41,8 +43,7 @@ export function SpendingGauge({
   const ratio = target > 0 ? actual / target : null;
   const clampedRatio = ratio === null ? 0 : Math.min(Math.max(ratio, 0), 1);
   const isOver = ratio !== null && ratio > thresholds.over;
-  const isWarning = ratio !== null && ratio > thresholds.warning && !isOver;
-  const color = isOver ? '#D33' : isWarning ? '#E0A500' : '#3C87F7';
+  const color = isOver ? theme.danger : theme.primary;
   const overPercent = ratio !== null && ratio > 1 ? Math.round((ratio - 1) * 100) : null;
 
   useEffect(() => {
@@ -78,7 +79,7 @@ export function SpendingGauge({
       style={{ width: size, height: size }}
     >
       <Svg width={size} height={size}>
-        <Circle cx={size / 2} cy={size / 2} r={radius} stroke="#E0E1E6" strokeWidth={STROKE_WIDTH} fill="none" />
+        <Circle cx={size / 2} cy={size / 2} r={radius} stroke={theme.border} strokeWidth={STROKE_WIDTH} fill="none" />
         {target > 0 && (
           <AnimatedCircle
             cx={size / 2}
