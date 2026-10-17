@@ -18,19 +18,24 @@ export default function LoginScreen() {
   async function handleLogin() {
     setError(null);
     setSubmitting(true);
-    const { error: signInError } = await signIn(email, password);
-    setSubmitting(false);
+    try {
+      const { error: signInError } = await signIn(email, password);
 
-    if (signInError) {
-      if (isEmailNotConfirmedError(signInError.message)) {
-        router.push({ pathname: '/(auth)/activate', params: { email } });
+      if (signInError) {
+        if (isEmailNotConfirmedError(signInError.message)) {
+          router.push({ pathname: '/(auth)/activate', params: { email } });
+          return;
+        }
+        setError(signInError.message);
         return;
       }
-      setError(signInError.message);
-      return;
-    }
 
-    router.replace('/(tabs)');
+      router.replace('/(tabs)');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not log in.');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (

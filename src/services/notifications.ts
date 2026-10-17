@@ -1,9 +1,19 @@
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import { getDb } from '@/data/local/db';
+import { AndroidImportance } from 'expo-notifications/build/NotificationChannelManager.types';
+import { requestPermissionsAsync } from 'expo-notifications/build/NotificationPermissions';
+import { SchedulableTriggerInputTypes } from 'expo-notifications/build/Notifications.types';
+import { setNotificationHandler } from 'expo-notifications/build/NotificationsHandler';
+import { cancelScheduledNotificationAsync } from 'expo-notifications/build/cancelScheduledNotificationAsync';
+import { getAllScheduledNotificationsAsync } from 'expo-notifications/build/getAllScheduledNotificationsAsync';
+import { scheduleNotificationAsync } from 'expo-notifications/build/scheduleNotificationAsync';
+import { setNotificationChannelAsync } from 'expo-notifications/build/setNotificationChannelAsync';
 
-Notifications.setNotificationHandler({
+// Import the local-notification modules directly. The package entry also loads
+// DevicePushTokenAutoRegistration, which throws on Android Expo Go (SDK 53+) even
+// when the app only schedules local reminders.
+setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
     shouldShowList: true,
@@ -16,15 +26,21 @@ Notifications.setNotificationHandler({
 // Android 13+ system opt-in prompt. The permission result is checked, not discarded — a denial
 // must stop scheduling, not be silently ignored (05-notification-scheduler.md).
 export async function initNotifications(): Promise<boolean> {
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('card-reminders', {
-      name: 'Card payment reminders',
-      importance: Notifications.AndroidImportance.DEFAULT,
-    });
-  }
+  try {
+    if (Platform.OS === 'android') {
+      await setNotificationChannelAsync('card-reminders', {
+        name: 'Card payment reminders',
+        importance: AndroidImportance.DEFAULT,
+      });
+    }
 
-  const { granted } = await Notifications.requestPermissionsAsync();
-  return granted;
+    const { granted } = await requestPermissionsAsync();
+    return granted;
+  } catch {
+    // Expo Go on Android has no notification-channel provider. Treat that as
+    // unavailable so login does not surface an uncaught rejection.
+    return false;
+  }
 }
 
 type NotificationLogRow = {
@@ -73,7 +89,7 @@ export type ReminderToApply = {
 // changed. Called on every scheduler run — card create/edit and app foreground
 // (05-notification-scheduler.md). Never gated on connectivity: this is a fully offline concern.
 export async function applyReminders(reminders: ReminderToApply[]): Promise<void> {
-  const osScheduled = await Notifications.getAllScheduledNotificationsAsync();
+  const osScheduled = await getAllScheduledNotificationsAsync();
   const osIds = new Set(osScheduled.map((n) => n.identifier));
   const logRows = await listLogRows();
 
@@ -82,7 +98,7 @@ export async function applyReminders(reminders: ReminderToApply[]): Promise<void
   const logIds = new Set(logRows.map((r) => r.local_notification_id));
   for (const notification of osScheduled) {
     if (notification.content.data?.cardId && !logIds.has(notification.identifier)) {
-      await Notifications.cancelScheduledNotificationAsync(notification.identifier);
+      await cancelScheduledNotificationAsync(notification.identifier);
     }
   }
   const validLogRows = logRows.filter((r) => osIds.has(r.local_notification_id));
@@ -100,7 +116,7 @@ export async function applyReminders(reminders: ReminderToApply[]): Promise<void
     if (!reminder.scheduledAt) {
       // Infeasible (or deleted) card: cancel any existing reminder, remove the log row.
       if (existing) {
-        await Notifications.cancelScheduledNotificationAsync(existing.local_notification_id);
+        await cancelScheduledNotificationAsync(existing.local_notification_id);
         await deleteLogRowsForCard(reminder.cardId);
       }
       continue;
@@ -111,18 +127,18 @@ export async function applyReminders(reminders: ReminderToApply[]): Promise<void
     if (unchanged) continue;
 
     if (existing) {
-      await Notifications.cancelScheduledNotificationAsync(existing.local_notification_id);
+      await cancelScheduledNotificationAsync(existing.local_notification_id);
       await deleteLogRowsForCard(reminder.cardId);
     }
 
-    const id = await Notifications.scheduleNotificationAsync({
+    const id = await scheduleNotificationAsync({
       content: {
         title: 'Card payment due soon',
         body: `${reminder.cardNickname} statement is due on ${reminder.dueDateLabel}`,
         data: { cardId: reminder.cardId },
       },
       trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        type: SchedulableTriggerInputTypes.DATE,
         date: reminder.scheduledAt,
         channelId: 'card-reminders',
       },
@@ -138,7 +154,7 @@ export async function cancelRemindersForCard(cardId: string): Promise<void> {
     cardId,
   ]);
   for (const row of rows) {
-    await Notifications.cancelScheduledNotificationAsync(row.local_notification_id);
+    await cancelScheduledNotificationAsync(row.local_notification_id);
   }
   await deleteLogRowsForCard(cardId);
 }

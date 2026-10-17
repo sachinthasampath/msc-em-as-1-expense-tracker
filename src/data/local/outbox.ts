@@ -1,3 +1,5 @@
+import type { SQLiteDatabase } from 'expo-sqlite';
+
 import { getDb } from '@/data/local/db';
 
 export type OutboxOp = 'insert' | 'update' | 'delete';
@@ -19,8 +21,16 @@ export type OutboxRow = {
 const MAX_ATTEMPTS = 5;
 const BACKOFF_MS = [2000, 4000, 8000, 16000, 30000];
 
-export async function enqueue(table: OutboxTable, id: string, op: OutboxOp, payload: unknown) {
-  const db = await getDb();
+// When called inside withWriteTransaction / withExclusiveTransactionAsync, pass the txn so the
+// outbox insert runs on that connection — using getDb() there deadlocks the exclusive lock.
+export async function enqueue(
+  table: OutboxTable,
+  id: string,
+  op: OutboxOp,
+  payload: unknown,
+  executor?: SQLiteDatabase,
+) {
+  const db = executor ?? (await getDb());
   await db.runAsync(
     'insert into outbox (entity_table, entity_id, op, payload, created_at) values (?, ?, ?, ?, ?)',
     [table, id, op, JSON.stringify(payload), Date.now()],

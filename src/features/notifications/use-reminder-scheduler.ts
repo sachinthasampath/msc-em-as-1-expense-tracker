@@ -14,7 +14,7 @@ import { initNotifications } from '@/services/notifications';
 export function useReminderScheduler(userId: string | null) {
   const { settings } = useNotificationSettings(userId);
   const settingsRef = useRef(settings);
-  const permissionRequested = useRef(false);
+  const notificationsReady = useRef<boolean | null>(null);
 
   useEffect(() => {
     settingsRef.current = settings;
@@ -25,12 +25,17 @@ export function useReminderScheduler(userId: string | null) {
     const uid = userId;
 
     async function recompute() {
-      if (!permissionRequested.current) {
-        permissionRequested.current = true;
-        await initNotifications();
+      try {
+        if (notificationsReady.current === null) {
+          notificationsReady.current = await initNotifications();
+        }
+        if (!notificationsReady.current) return;
+
+        const result = await recomputeReminders(uid, settingsRef.current);
+        publishInfeasibleReminders(result);
+      } catch {
+        notificationsReady.current = false;
       }
-      const result = await recomputeReminders(uid, settingsRef.current);
-      publishInfeasibleReminders(result);
     }
 
     recompute();

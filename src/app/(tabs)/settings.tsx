@@ -25,15 +25,28 @@ export default function SettingsScreen() {
   const [quietHoursStart, setQuietHoursStart] = useState(settings.quietHoursStart);
   const [quietHoursEnd, setQuietHoursEnd] = useState(settings.quietHoursEnd);
   const [maxPerDay, setMaxPerDay] = useState(String(settings.maxPerDay));
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSave() {
-    await setSettings({
-      ...settings,
-      quietHoursStart,
-      quietHoursEnd,
-      maxPerDay: Number(maxPerDay) || settings.maxPerDay,
-    });
-    notifyCardsChanged(); // take effect immediately, not just on next foreground
+    setError(null);
+    setSaving(true);
+    try {
+      await setSettings({
+        ...settings,
+        quietHoursStart,
+        quietHoursEnd,
+        maxPerDay: Number(maxPerDay) || settings.maxPerDay,
+      });
+      notifyCardsChanged(); // take effect immediately, not just on next foreground
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save settings.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -79,8 +92,14 @@ export default function SettingsScreen() {
 
       <ThemedText themeColor="textSecondary">Timezone: {settings.timeZone}</ThemedText>
 
-      <Pressable onPress={handleSave} style={[styles.button, { backgroundColor: theme.backgroundSelected }]}>
-        <ThemedText type="smallBold">Save</ThemedText>
+      {error && <ThemedText style={styles.error}>{error}</ThemedText>}
+
+      <Pressable
+        onPress={handleSave}
+        disabled={saving}
+        style={[styles.button, { backgroundColor: theme.backgroundSelected }]}
+      >
+        <ThemedText type="smallBold">{saving ? 'Saving…' : saved ? 'Saved' : 'Save'}</ThemedText>
       </Pressable>
     </ScrollView>
   );
@@ -113,5 +132,8 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.two,
     padding: Spacing.three,
     gap: Spacing.one,
+  },
+  error: {
+    color: '#D33',
   },
 });

@@ -1,6 +1,6 @@
 import * as Crypto from 'expo-crypto';
 
-import { getDb } from '@/data/local/db';
+import { getDb, withWriteTransaction } from '@/data/local/db';
 import { enqueue } from '@/data/local/outbox';
 import { Card, NewCard } from '@/types/domain';
 
@@ -48,8 +48,8 @@ export async function createCard(input: NewCard): Promise<Card> {
   const now = new Date().toISOString();
   const card: Card = { ...input, id: Crypto.randomUUID(), createdAt: now, updatedAt: now, deletedAt: null };
 
-  await db.withTransactionAsync(async () => {
-    await db.runAsync(
+  await withWriteTransaction(db, async (txn) => {
+    await txn.runAsync(
       `insert into cards
         (id, user_id, nickname, card_type, last4, statement_day, payment_due_day, reminder_lead_days, created_at, updated_at, sync_status)
        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_sync')`,
@@ -66,7 +66,7 @@ export async function createCard(input: NewCard): Promise<Card> {
         card.updatedAt,
       ],
     );
-    await enqueue('cards', card.id, 'insert', card);
+    await enqueue('cards', card.id, 'insert', card, txn);
   });
 
   return card;
@@ -76,8 +76,8 @@ export async function updateCard(card: Card): Promise<Card> {
   const db = await getDb();
   const updated: Card = { ...card, updatedAt: new Date().toISOString() };
 
-  await db.withTransactionAsync(async () => {
-    await db.runAsync(
+  await withWriteTransaction(db, async (txn) => {
+    await txn.runAsync(
       `update cards set
         nickname = ?, card_type = ?, last4 = ?, statement_day = ?, payment_due_day = ?,
         reminder_lead_days = ?, updated_at = ?, sync_status = 'pending_sync'
@@ -93,7 +93,7 @@ export async function updateCard(card: Card): Promise<Card> {
         updated.id,
       ],
     );
-    await enqueue('cards', updated.id, 'update', updated);
+    await enqueue('cards', updated.id, 'update', updated, txn);
   });
 
   return updated;
@@ -103,11 +103,11 @@ export async function deleteCard(id: string): Promise<void> {
   const db = await getDb();
   const now = new Date().toISOString();
 
-  await db.withTransactionAsync(async () => {
-    await db.runAsync(`update cards set deleted_at = ?, sync_status = 'pending_delete' where id = ?`, [
+  await withWriteTransaction(db, async (txn) => {
+    await txn.runAsync(`update cards set deleted_at = ?, sync_status = 'pending_delete' where id = ?`, [
       now,
       id,
     ]);
-    await enqueue('cards', id, 'delete', { id });
+    await enqueue('cards', id, 'delete', { id }, txn);
   });
 }

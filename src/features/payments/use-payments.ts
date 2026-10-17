@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import * as paymentsRepo from '@/data/repositories/payments-repository';
 import { computeBillingPeriod } from '@/features/payments/billing-period';
+import { notifyPaymentsChanged, onPaymentsChanged } from '@/features/payments/payment-events';
 import { Card, Payment, PaymentMethod } from '@/types/domain';
 
 export type AddPaymentInput = {
@@ -32,6 +33,12 @@ export function usePayments(userId: string | null) {
     load();
   }, [refresh]);
 
+  useEffect(() => {
+    return onPaymentsChanged(() => {
+      void refresh();
+    });
+  }, [refresh]);
+
   const addPayment = useCallback(
     async (input: AddPaymentInput) => {
       const occurredAt = new Date(input.occurredAt);
@@ -53,19 +60,22 @@ export function usePayments(userId: string | null) {
         notes: input.notes,
         isRecurringGuess: false,
       });
-      await refresh();
+      notifyPaymentsChanged();
       return payment;
     },
-    [refresh],
+    [],
   );
 
-  const removePayment = useCallback(
-    async (id: string) => {
-      await paymentsRepo.deletePayment(id);
-      await refresh();
-    },
-    [refresh],
-  );
+  const attachReceipt = useCallback(async (payment: Payment, photoPath: string) => {
+    const updated = await paymentsRepo.updatePayment({ ...payment, photoPath });
+    notifyPaymentsChanged();
+    return updated;
+  }, []);
 
-  return { payments, loading, addPayment, removePayment };
+  const removePayment = useCallback(async (id: string) => {
+    await paymentsRepo.deletePayment(id);
+    notifyPaymentsChanged();
+  }, []);
+
+  return { payments, loading, addPayment, attachReceipt, removePayment, refresh };
 }

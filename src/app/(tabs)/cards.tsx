@@ -38,25 +38,42 @@ export default function CardsScreen() {
   const [last4, setLast4] = useState('');
   const [statementDay, setStatementDay] = useState('');
   const [paymentDueDay, setPaymentDueDay] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleAdd() {
-    if (!userId || !nickname.trim()) return;
+    if (!userId) {
+      setError('You need to be signed in to save a card.');
+      return;
+    }
+    if (!nickname.trim()) {
+      setError('Enter a nickname for the card.');
+      return;
+    }
 
-    await addCard({
-      userId,
-      nickname: nickname.trim(),
-      cardType,
-      last4: last4 || null,
-      statementDay: cardType === 'credit' ? Number(statementDay) || null : null,
-      paymentDueDay: cardType === 'credit' ? Number(paymentDueDay) || null : null,
-      reminderLeadDays: 3,
-    });
+    setError(null);
+    setSaving(true);
+    try {
+      await addCard({
+        userId,
+        nickname: nickname.trim(),
+        cardType,
+        last4: last4 || null,
+        statementDay: cardType === 'credit' ? Number(statementDay) || null : null,
+        paymentDueDay: cardType === 'credit' ? Number(paymentDueDay) || null : null,
+        reminderLeadDays: 3,
+      });
 
-    setNickname('');
-    setLast4('');
-    setStatementDay('');
-    setPaymentDueDay('');
-    setShowForm(false);
+      setNickname('');
+      setLast4('');
+      setStatementDay('');
+      setPaymentDueDay('');
+      setShowForm(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save card.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -136,11 +153,13 @@ export default function CardsScreen() {
               />
             </>
           )}
+          {error && <ThemedText style={styles.error}>{error}</ThemedText>}
           <Pressable
             onPress={handleAdd}
+            disabled={saving}
             style={[styles.button, { backgroundColor: theme.backgroundSelected }]}
           >
-            <ThemedText type="smallBold">Save card</ThemedText>
+            <ThemedText type="smallBold">{saving ? 'Saving…' : 'Save card'}</ThemedText>
           </Pressable>
         </ThemedView>
       ) : (
@@ -184,5 +203,8 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.two,
     paddingVertical: Spacing.three,
     alignItems: 'center',
+  },
+  error: {
+    color: '#D33',
   },
 });

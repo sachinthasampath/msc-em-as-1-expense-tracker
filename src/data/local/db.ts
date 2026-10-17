@@ -1,4 +1,5 @@
 import * as SQLite from 'expo-sqlite';
+import { Platform } from 'react-native';
 
 import { MIGRATIONS } from '@/data/local/schema.sql';
 
@@ -9,6 +10,20 @@ export function getDb() {
     dbPromise = openDb();
   }
   return dbPromise;
+}
+
+// Exclusive transactions use a dedicated connection so concurrent sync reads/writes cannot
+// interleave into the same BEGIN…COMMIT (expo-sqlite's plain withTransactionAsync is not
+// exclusive). Web has no exclusive API — fall back to the shared-connection transaction there.
+export async function withWriteTransaction(
+  db: SQLite.SQLiteDatabase,
+  task: (txn: SQLite.SQLiteDatabase) => Promise<void>,
+): Promise<void> {
+  if (Platform.OS === 'web') {
+    await db.withTransactionAsync(() => task(db));
+    return;
+  }
+  await db.withExclusiveTransactionAsync(task);
 }
 
 async function openDb() {

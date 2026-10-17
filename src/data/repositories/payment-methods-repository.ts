@@ -1,6 +1,6 @@
 import * as Crypto from 'expo-crypto';
 
-import { getDb } from '@/data/local/db';
+import { getDb, withWriteTransaction } from '@/data/local/db';
 import { enqueue } from '@/data/local/outbox';
 import { NewPaymentMethod, PaymentMethod } from '@/types/domain';
 
@@ -37,13 +37,13 @@ export async function createPaymentMethod(input: NewPaymentMethod): Promise<Paym
   const db = await getDb();
   const method: PaymentMethod = { ...input, id: Crypto.randomUUID(), createdAt: new Date().toISOString() };
 
-  await db.withTransactionAsync(async () => {
-    await db.runAsync(
+  await withWriteTransaction(db, async (txn) => {
+    await txn.runAsync(
       `insert into payment_methods (id, user_id, method_type, card_id, label, created_at, sync_status)
        values (?, ?, ?, ?, ?, ?, 'pending_sync')`,
       [method.id, method.userId, method.methodType, method.cardId, method.label, method.createdAt],
     );
-    await enqueue('payment_methods', method.id, 'insert', method);
+    await enqueue('payment_methods', method.id, 'insert', method, txn);
   });
 
   return method;
@@ -70,8 +70,8 @@ export async function ensureDefaultPaymentMethods(userId: string): Promise<void>
 export async function deletePaymentMethod(id: string): Promise<void> {
   const db = await getDb();
 
-  await db.withTransactionAsync(async () => {
-    await db.runAsync(`update payment_methods set sync_status = 'pending_delete' where id = ?`, [id]);
-    await enqueue('payment_methods', id, 'delete', { id });
+  await withWriteTransaction(db, async (txn) => {
+    await txn.runAsync(`update payment_methods set sync_status = 'pending_delete' where id = ?`, [id]);
+    await enqueue('payment_methods', id, 'delete', { id }, txn);
   });
 }

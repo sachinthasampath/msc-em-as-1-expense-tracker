@@ -20,15 +20,20 @@ export default function ActivateScreen() {
     setError(null);
     setInfo(null);
     setSubmitting(true);
-    const { error: verifyError } = await verifyActivationCode(email, code);
-    setSubmitting(false);
+    try {
+      const { error: verifyError } = await verifyActivationCode(email, code);
 
-    if (verifyError) {
-      setError(verifyError.message);
-      return;
+      if (verifyError) {
+        setError(verifyError.message);
+        return;
+      }
+
+      router.replace('/(tabs)');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not verify code.');
+    } finally {
+      setSubmitting(false);
     }
-
-    router.replace('/(tabs)');
   }
 
   async function handleResend() {
@@ -44,15 +49,15 @@ export default function ActivateScreen() {
   return (
     <ThemedView style={styles.container}>
       <ThemedText type="title">Activate account</ThemedText>
-      <ThemedText themeColor="textSecondary">Enter the 6-digit code sent to {email}</ThemedText>
+      <ThemedText themeColor="textSecondary">Enter the 8-digit code sent to {email}</ThemedText>
 
       <TextInput
-        placeholder="123456"
+        placeholder="12345678"
         placeholderTextColor={theme.textSecondary}
         value={code}
         onChangeText={setCode}
         keyboardType="number-pad"
-        maxLength={6}
+        maxLength={8}
         style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
       />
 

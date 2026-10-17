@@ -1,4 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  FunctionsFetchError,
+  FunctionsHttpError,
+  FunctionsRelayError,
+} from '@supabase/supabase-js';
 import { useCallback, useState } from 'react';
 
 import { supabase } from '@/data/remote/supabase-client';
@@ -14,6 +19,41 @@ export type PredictionState =
 
 function cacheKey(userId: string) {
   return `last-prediction:${userId}`;
+}
+
+async function readFunctionError(error: unknown): Promise<{ status?: number; message: string }> {
+  if (error instanceof FunctionsHttpError) {
+    const status = error.context?.status as number | undefined;
+    try {
+      // Prefer text() so we don't trip Expo's Response.blob() warning path.
+      const text = await error.context.text();
+      const body = text ? JSON.parse(text) : null;
+      if (status === 404 || body?.code === 'NOT_FOUND') {
+        return {
+          status: 404,
+          message:
+            'Prediction service is not deployed. From the project folder run: npx supabase functions deploy predict-expenses --project-ref <your-ref>',
+        };
+      }
+      if (typeof body?.error === 'string') return { status, message: body.error };
+      if (typeof body?.message === 'string') return { status, message: body.message };
+    } catch {
+      // Body was empty or not JSON.
+    }
+    if (status === 404) {
+      return {
+        status: 404,
+        message: 'Prediction service is not deployed. Deploy the predict-expenses Edge Function.',
+      };
+    }
+    return { status, message: error.message };
+  }
+
+  if (error instanceof FunctionsRelayError || error instanceof FunctionsFetchError) {
+    return { message: error.message };
+  }
+
+  return { message: error instanceof Error ? error.message : 'Prediction request failed.' };
 }
 
 // The one screen in the app that requires connectivity — the forecast is computed server-side
@@ -46,11 +86,11 @@ export function usePredictions(userId: string | null) {
       });
 
       if (error) {
-        const status = (error as { context?: { status?: number } })?.context?.status;
+        const { status, message } = await readFunctionError(error);
         if (status === 429) {
           setState({ status: 'rate-limited' });
         } else {
-          setState({ status: 'error', message: error.message });
+          setState({ status: 'error', message });
         }
         return;
       }

@@ -6,14 +6,12 @@ import { aggregate, PaymentRow, windowStart } from './aggregate.ts';
 import { callOpenRouter } from './openrouter.ts';
 import { parseAiExplanation } from './schema.ts';
 
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
 const DAILY_LIMIT = 10;
 const CACHE_STALE_MS = 24 * 60 * 60 * 1000;
-
-const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 function monthStartDate(date: Date): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-01`;
@@ -24,8 +22,15 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 Deno.serve(async (req) => {
+  try {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204 });
   if (req.method !== 'POST') return jsonResponse({ error: 'Method not allowed' }, 405);
+
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
+    return jsonResponse({ error: 'Prediction service is not configured' }, 500);
+  }
+
+  const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   const authHeader = req.headers.get('Authorization');
   if (!authHeader?.startsWith('Bearer ')) return jsonResponse({ error: 'Unauthorized' }, 401);
@@ -34,7 +39,7 @@ Deno.serve(async (req) => {
   // makes. The service-role client below is reserved strictly for the two tables clients have
   // no insert policy for (07-ai-prediction.md — this is the whole point of the security design,
   // not a style choice).
-  const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  const userClient = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
     global: { headers: { Authorization: authHeader } },
   });
 
@@ -107,7 +112,10 @@ Deno.serve(async (req) => {
     .gte('occurred_at', since)
     .order('occurred_at', { ascending: true });
 
-  if (queryError) return jsonResponse({ error: 'Query failed' }, 500);
+  if (queryError) {
+    console.error('predict-expenses: payments query failed', queryError.message);
+    return jsonResponse({ error: 'Could not load payments for the forecast' }, 500);
+  }
 
   const payments: PaymentRow[] = (paymentRows ?? []).map((row: any) => ({
     id: row.id,
@@ -169,4 +177,8 @@ Deno.serve(async (req) => {
     cached: false,
     generatedAt,
   });
+  } catch (err) {
+    console.error('predict-expenses', err instanceof Error ? err.message : err);
+    return jsonResponse({ error: 'Prediction failed' }, 500);
+  }
 });

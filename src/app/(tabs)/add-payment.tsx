@@ -14,6 +14,7 @@ import { usePaymentMethods } from '@/features/payments/use-payment-methods';
 import { usePayments } from '@/features/payments/use-payments';
 import { useTheme } from '@/hooks/use-theme';
 import { useIsOnline } from '@/services/connectivity';
+import { Payment } from '@/types/domain';
 
 export default function AddPaymentScreen() {
   const theme = useTheme();
@@ -24,7 +25,7 @@ export default function AddPaymentScreen() {
   const { categories } = useCategories(userId);
   const { cards } = useCards(userId);
   const { methods } = usePaymentMethods(userId);
-  const { addPayment } = usePayments(userId);
+  const { addPayment, attachReceipt } = usePayments(userId);
 
   const [amount, setAmount] = useState('');
   const [notes, setNotes] = useState('');
@@ -33,6 +34,7 @@ export default function AddPaymentScreen() {
   const [receiptUri, setReceiptUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -42,43 +44,56 @@ export default function AddPaymentScreen() {
   );
 
   async function handleSave() {
-    if (!userId) return;
+    if (!userId) {
+      setError('You need to be signed in to save a payment.');
+      return;
+    }
     const amountValue = Number(amount);
-    if (!amountValue || amountValue <= 0) return;
-
-    setSaving(true);
-    const method = methods.find((m) => m.id === methodId) ?? null;
-    const card = method?.cardId ? (cards.find((c) => c.id === method.cardId) ?? null) : null;
-
-    // Receipts aren't outbox-queued (04-offline-sync.md's outbox only covers cards/payment_
-    // methods/payments) — attaching one requires connectivity now; offline, the payment still
-    // saves, just without a photo.
-    let photoPath: string | null = null;
-    if (receiptUri && isOnline) {
-      try {
-        photoPath = await uploadReceipt(userId, receiptUri);
-      } catch {
-        photoPath = null;
-      }
+    if (!amountValue || amountValue <= 0) {
+      setError('Enter an amount greater than zero.');
+      return;
     }
 
-    await addPayment({
-      userId,
-      amountMinor: Math.round(amountValue * 100),
-      occurredAt: new Date().toISOString(),
-      categoryId,
-      paymentMethod: method,
-      card,
-      notes: notes.trim() || null,
-      photoPath,
-    });
+    setError(null);
+    setSaving(true);
+    const pendingReceiptUri = receiptUri;
+    let payment: Payment | null = null;
+    try {
+      const method = methods.find((m) => m.id === methodId) ?? null;
+      const card = method?.cardId ? (cards.find((c) => c.id === method.cardId) ?? null) : null;
 
-    setAmount('');
-    setNotes('');
-    setReceiptUri(null);
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+      // Persist locally first so a slow/hung receipt upload cannot block creation or leave the
+      // button stuck on "Saving…". Receipts aren't outbox-queued — attach is best-effort/online-only.
+      payment = await addPayment({
+        userId,
+        amountMinor: Math.round(amountValue * 100),
+        occurredAt: new Date().toISOString(),
+        categoryId,
+        paymentMethod: method,
+        card,
+        notes: notes.trim() || null,
+        photoPath: null,
+      });
+
+      setAmount('');
+      setNotes('');
+      setReceiptUri(null);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save payment.');
+    } finally {
+      setSaving(false);
+    }
+
+    if (payment && pendingReceiptUri && isOnline) {
+      try {
+        const photoPath = await uploadReceipt(userId, pendingReceiptUri);
+        await attachReceipt(payment, photoPath);
+      } catch {
+        // Payment already saved; receipt attach is best-effort.
+      }
+    }
   }
 
   return (
@@ -151,6 +166,8 @@ export default function AddPaymentScreen() {
         </Pressable>
       )}
 
+      {error && <ThemedText style={styles.error}>{error}</ThemedText>}
+
       <Pressable
         onPress={handleSave}
         disabled={saving}
@@ -199,5 +216,8 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.two,
     paddingVertical: Spacing.three,
     alignItems: 'center',
+  },
+  error: {
+    color: '#D33',
   },
 });

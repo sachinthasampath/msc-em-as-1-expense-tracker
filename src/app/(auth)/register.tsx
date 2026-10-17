@@ -25,15 +25,20 @@ export default function RegisterScreen() {
     }
 
     setSubmitting(true);
-    const { error: signUpError } = await signUp(email, password);
-    setSubmitting(false);
+    try {
+      const { error: signUpError } = await signUp(email, password);
 
-    if (signUpError) {
-      setError(signUpError.message);
-      return;
+      if (signUpError) {
+        setError(signUpError.message);
+        return;
+      }
+
+      router.push({ pathname: '/(auth)/activate', params: { email } });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not create account.');
+    } finally {
+      setSubmitting(false);
     }
-
-    router.push({ pathname: '/(auth)/activate', params: { email } });
   }
 
   return (
